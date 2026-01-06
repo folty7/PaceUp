@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/activity.dart';
 import '../models/goal.dart';
 import '../services/api_service.dart';
@@ -26,27 +26,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _loadGoals();
+    _loadData();
   }
 
-  // Načítanie uložených cieľov
-  Future<void> _loadGoals() async {
-    final prefs = await SharedPreferences.getInstance();
-    final goalsJson = prefs.getString('goals');
-    if (goalsJson != null) {
-      final List<dynamic> decoded = json.decode(goalsJson);
+  // Načítanie dát (Aktivity aj Ciele)
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final results = await Future.wait([
+        _apiService.fetchActivities(),
+        _apiService.fetchGoals(),
+      ]);
+
       setState(() {
-        _goals = decoded.map((json) => Goal.fromJson(json)).toList();
+        _activities = results[0] as List<Activity>;
+        _goals = results[1] as List<Goal>;
+        _isLoading = false;
       });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Chyba pri načítavaní dát: $e')),
+        );
+      }
     }
   }
 
-  // Uloženie cieľov
-  Future<void> _saveGoals() async {
-    final prefs = await SharedPreferences.getInstance();
-    final goalsJson = json.encode(_goals.map((g) => g.toJson()).toList());
-    await prefs.setString('goals', goalsJson);
-  }
+
 
   // Pridanie nového cieľa
   Future<void> _addGoal() async {
@@ -56,63 +68,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
     if (goal != null) {
-      setState(() {
-        _goals.add(goal);
-      });
-      await _saveGoals();
+      try {
+        // Push goal to API
+        final createdGoal = await _apiService.createGoal(goal);
+
+        setState(() {
+          _goals.add(createdGoal);
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cieľ bol úspešne vytvorený!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Chyba pri vytváraní cieľa: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
   // Odstránenie cieľa
   Future<void> _removeGoal(String goalId) async {
-    setState(() {
-      _goals.removeWhere((g) => g.id == goalId);
-    });
-    await _saveGoals();
-  }
-
-  // Archivovanie cieľa
-  Future<void> _archiveGoal(String goalId) async {
-    setState(() {
-      final index = _goals.indexWhere((g) => g.id == goalId);
-      if (index != -1) {
-        _goals[index] = _goals[index].copyWithArchived(true);
-      }
-    });
-    await _saveGoals();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cieľ bol archivovaný!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
-  }
-
-  // Načítanie aktivít z API
-  Future<void> _loadActivities() async {
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
-      final activities = await _apiService.fetchActivities();
+      await _apiService.deleteGoal(goalId);
+      
       setState(() {
-        _activities = activities;
-        _isLoading = false;
+        _goals.removeWhere((g) => g.id == goalId);
       });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Chyba pri načítavaní: $e')),
+          SnackBar(
+            content: Text('Chyba pri odstraňovaní cieľa: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
   }
+
+  // Archivovanie cieľa
+  Future<void> _archiveGoal(String goalId) async {
+    final index = _goals.indexWhere((g) => g.id == goalId);
+    if (index != -1) {
+      final updatedGoal = _goals[index].copyWithArchived(true);
+      
+      try {
+        // Update on API
+        await _apiService.updateGoal(updatedGoal);
+
+        setState(() {
+          _goals[index] = updatedGoal;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cieľ bol archivovaný!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Chyba pri archivácii: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+
 
   // Výpočet priemerného tempa
   double _calculateAveragePace(List<Activity> activities) {
@@ -187,7 +227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 // Tlačidlo "Načítať aktivity"
                 ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _loadActivities,
+                  onPressed: _isLoading ? null : _loadData,
                   icon: _isLoading
                       ? const SizedBox(
                           width: 20,
@@ -195,7 +235,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.refresh),
-                  label: Text(_isLoading ? 'Načítavam...' : 'Načítať aktivity'),
+                  label: Text(_isLoading ? 'Načítavam...' : 'Načítať dáta'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
                     backgroundColor: Colors.blue,
