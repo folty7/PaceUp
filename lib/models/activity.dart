@@ -24,4 +24,14 @@ class Activity {
       pace: json['pace'].toDouble(),
     );
   }
+  // Konverzia na JSON pre uloženie
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'distance': distance,
+      'duration': duration,
+      'date': date,
+      'pace': pace,
+    };
+  }
 }

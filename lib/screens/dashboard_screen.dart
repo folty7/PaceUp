@@ -6,6 +6,7 @@ import '../models/goal.dart';
 import '../services/api_service.dart';
 import '../widgets/goal_chart.dart';
 import 'activities_screen.dart';
+import 'add_activity_modal.dart';
 import 'add_goal_modal.dart';
 import 'archived_goals_screen.dart';
 
@@ -28,6 +29,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _loadData();
   }
+
+// TODO: code splitting + refactoring
 
   // Načítanie dát (Aktivity aj Ciele)
   Future<void> _loadData() async {
@@ -54,6 +57,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Chyba pri načítavaní dát: $e')),
         );
+      }
+    }
+  }
+
+  // Pridanie novej aktivity
+  Future<void> _addActivity() async {
+    final activity = await showDialog<Activity>(
+      context: context,
+      builder: (context) => const AddActivityModal(),
+    );
+
+    if (activity != null) {
+      try {
+        final createdActivity = await _apiService.createActivity(activity);
+        setState(() {
+          _activities.add(createdActivity);
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Aktivita bola úspešne pridaná!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Chyba pri vytváraní aktivity: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -245,17 +283,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 if (_activities.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ActivitiesScreen(activities: _activities),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.list),
-                    label: Text('Zobraziť aktivity (${_activities.length})'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ActivitiesScreen(activities: _activities),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.list),
+                        label: Text('Zobraziť aktivity (${_activities.length})'),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -271,14 +314,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Moje ciele',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                ElevatedButton.icon(
-                  onPressed: _addGoal,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Pridať cieľ'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
+                Column(
+                  children: [
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _addActivity,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Pridať aktivitu'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _addGoal,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Pridať cieľ'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -311,7 +372,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ..._goals.where((g) => !g.isArchived).map((goal) {
                 final progress = _activities.isEmpty
                     ? 0.0
-                    : _apiService.calculateProgress(_activities, goal.targetDistance);
+                    : _apiService.calculateProgress(_activities, goal);
+
+                // Calculate distance for this goal specifically
+                final goalActivities = _activities.where((a) => a.date.compareTo(goal.createdAt) >= 0).toList();
+                final currentDistance = _apiService.calculateTotalDistance(goalActivities);
 
                 final paceOk = averagePace > 0 && averagePace <= goal.targetPace;
                 final progressColor = progress >= 100 ? Colors.green : Colors.blue;
@@ -409,7 +474,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '${totalDistance.toStringAsFixed(1)} / ${goal.targetDistance.toStringAsFixed(1)} km',
+                              '${currentDistance.toStringAsFixed(1)} / ${goal.targetDistance.toStringAsFixed(1)} km',
                               style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                             ),
                           ],
@@ -446,11 +511,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                         // Graf vzdialenosti
                         GoalChart(
-                          activities: _activities,
+                          activities: goalActivities,
                           targetValue: goal.targetDistance,
                           title: 'Vzdialenosť v čase',
                           unit: 'km',
-                          isPaceChart: false,
                         ),
                       ],
                     ),

@@ -93,7 +93,10 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
                     final goal = widget.archivedGoals[index];
                     final progress = _activities.isEmpty
                         ? 0.0
-                        : _apiService.calculateProgress(_activities, goal.targetDistance);
+                        : _apiService.calculateProgress(_activities, goal);
+
+                    final goalActivities = _activities.where((a) => a.date.compareTo(goal.createdAt) >= 0).toList();
+                    final currentDistance = _apiService.calculateTotalDistance(goalActivities);
 
                     final paceOk = averagePace > 0 && averagePace <= goal.targetPace;
 
@@ -143,14 +146,6 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                            if (goal.archivedDate != null)
-                                              Text(
-                                                'Splnené: ${goal.archivedDate}',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey[600],
-                                                ),
-                                              ),
                                           ],
                                         ),
                                       ),
@@ -176,6 +171,10 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11,
                                         ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete, color: Colors.red),
+                                        onPressed: () => _removeGoal(goal.id),
                                       ),
                                     ],
                                   ),
@@ -211,7 +210,7 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '${totalDistance.toStringAsFixed(1)} / ${goal.targetDistance.toStringAsFixed(1)} km',
+                                  '${currentDistance.toStringAsFixed(1)} / ${goal.targetDistance.toStringAsFixed(1)} km',
                                   style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                                 ),
                               ],
@@ -248,11 +247,10 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
 
                             // Graf vzdialenosti
                             GoalChart(
-                              activities: _activities,
+                              activities: goalActivities,
                               targetValue: goal.targetDistance,
                               title: 'Vzdialenosť v čase',
                               unit: 'km',
-                              isPaceChart: false,
                             ),
                           ],
                         ),

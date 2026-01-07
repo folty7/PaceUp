@@ -7,7 +7,6 @@ class GoalChart extends StatelessWidget {
   final double targetValue;
   final String title;
   final String unit;
-  final bool isPaceChart; // true = pace chart, false = distance chart
 
   const GoalChart({
     super.key,
@@ -15,7 +14,6 @@ class GoalChart extends StatelessWidget {
     required this.targetValue,
     required this.title,
     required this.unit,
-    required this.isPaceChart,
   });
 
   @override
@@ -47,15 +45,8 @@ class GoalChart extends StatelessWidget {
 
     for (int i = 0; i < sortedActivities.length; i++) {
       final activity = sortedActivities[i];
-
-      if (isPaceChart) {
-        // Pre tempo chart - zobrazujeme tempo každej aktivity
-        actualSpots.add(FlSpot(i.toDouble(), activity.pace));
-      } else {
-        // Pre distance chart - kumulatívna vzdialenosť
-        cumulativeDistance += activity.distance;
-        actualSpots.add(FlSpot(i.toDouble(), cumulativeDistance));
-      }
+      cumulativeDistance += activity.distance;
+      actualSpots.add(FlSpot(i.toDouble(), cumulativeDistance));
     }
 
     // Cieľová čiara (rovná)
@@ -65,15 +56,8 @@ class GoalChart extends StatelessWidget {
     ];
 
     // Nájdenie min a max hodnôt pre Y os
-    double minY, maxY;
-    if (isPaceChart) {
-      final allPaces = sortedActivities.map((a) => a.pace).toList();
-      minY = [allPaces.reduce((a, b) => a < b ? a : b), targetValue].reduce((a, b) => a < b ? a : b) - 0.5;
-      maxY = [allPaces.reduce((a, b) => a > b ? a : b), targetValue].reduce((a, b) => a > b ? a : b) + 0.5;
-    } else {
-      minY = 0;
-      maxY = [cumulativeDistance, targetValue].reduce((a, b) => a > b ? a : b) * 1.1;
-    }
+    double minY = 0;
+    double maxY = [cumulativeDistance, targetValue].reduce((a, b) => a > b ? a : b) * 1.1;
 
     return Container(
       decoration: BoxDecoration(
@@ -112,7 +96,6 @@ class GoalChart extends StatelessWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: isPaceChart ? 0.5 : null,
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: Colors.grey[300]!,
@@ -140,12 +123,15 @@ class GoalChart extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 30,
+                      interval: (sortedActivities.length > 10)
+                          ? (sortedActivities.length / 10).ceil().toDouble()
+                          : 1.0,
                       getTitlesWidget: (value, meta) {
                         if (value.toInt() >= 0 && value.toInt() < sortedActivities.length) {
                           return Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: Text(
-                              'D${value.toInt() + 1}',
+                              'T${value.toInt() + 1}',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 10,
@@ -212,11 +198,7 @@ class GoalChart extends StatelessWidget {
                         String text;
                         if (spot.barIndex == 0) {
                           // Aktuálne hodnoty
-                          if (isPaceChart) {
-                            text = '${activity.date}\nTempo: ${spot.y.toStringAsFixed(2)} $unit';
-                          } else {
-                            text = '${activity.date}\nCelkom: ${spot.y.toStringAsFixed(1)} $unit';
-                          }
+                          text = '${activity.date}\nCelkom: ${spot.y.toStringAsFixed(1)} $unit';
                         } else {
                           // Cieľ
                           text = 'Cieľ: ${spot.y.toStringAsFixed(1)} $unit';

@@ -1,39 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/goal.dart';
+import 'package:intl/intl.dart';
+import '../models/activity.dart';
 
-class AddGoalModal extends StatefulWidget {
-  const AddGoalModal({super.key});
+class AddActivityModal extends StatefulWidget {
+  const AddActivityModal({super.key});
 
   @override
-  State<AddGoalModal> createState() => _AddGoalModalState();
+  State<AddActivityModal> createState() => _AddActivityModalState();
 }
 
-class _AddGoalModalState extends State<AddGoalModal> {
+class _AddActivityModalState extends State<AddActivityModal> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _distanceController = TextEditingController();
-  final _paceController = TextEditingController();
+  final _durationController = TextEditingController();
+  final _dateController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
+  }
 
   @override
   void dispose() {
-    _nameController.dispose();
     _distanceController.dispose();
-    _paceController.dispose();
+    _durationController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
-  void _saveGoal() {
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
+  }
+
+  void _saveActivity() {
     if (_formKey.currentState!.validate()) {
-      final goal = Goal(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: _nameController.text,
-        targetDistance: double.parse(_distanceController.text),
-        targetPace: double.parse(_paceController.text),
-        createdAt: DateTime.now().toString().split(' ')[0], // YYYY-MM-DD
+      final distance = double.parse(_distanceController.text);
+      final duration = int.parse(_durationController.text);
+      final pace = duration / distance; // min/km
+
+      final activity = Activity(
+        id: 0, // MockAPI will assign ID
+        distance: distance,
+        duration: duration,
+        date: _dateController.text,
+        pace: double.parse(pace.toStringAsFixed(2)),
       );
 
-      Navigator.pop(context, goal);
+      Navigator.pop(context, activity);
     }
   }
 
@@ -52,12 +79,11 @@ class _AddGoalModalState extends State<AddGoalModal> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Nadpis
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Pridať nový cieľ',
+                      'Pridať aktivitu',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -71,30 +97,31 @@ class _AddGoalModalState extends State<AddGoalModal> {
                 ),
                 const SizedBox(height: 24),
 
-                // Názov cieľa
+                // Dátum
                 TextFormField(
-                  controller: _nameController,
+                  controller: _dateController,
                   decoration: const InputDecoration(
-                    labelText: 'Názov cieľa',
-                    hintText: 'napr. Jarný maratón 2025',
-                    prefixIcon: Icon(Icons.flag),
+                    labelText: 'Dátum',
+                    prefixIcon: Icon(Icons.calendar_today),
                     border: OutlineInputBorder(),
                   ),
+                  readOnly: true,
+                  onTap: () => _selectDate(context),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Zadaj názov cieľa';
+                      return 'Vyber dátum';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                // Cieľová vzdialenosť
+                // Vzdialenosť
                 TextFormField(
                   controller: _distanceController,
                   decoration: const InputDecoration(
-                    labelText: 'Cieľová vzdialenosť (km)',
-                    hintText: 'napr. 42.2',
+                    labelText: 'Vzdialenosť (km)',
+                    hintText: 'napr. 5.2',
                     prefixIcon: Icon(Icons.straighten),
                     border: OutlineInputBorder(),
                     suffixText: 'km',
@@ -116,34 +143,33 @@ class _AddGoalModalState extends State<AddGoalModal> {
                 ),
                 const SizedBox(height: 16),
 
-                // Cieľové tempo
+                // Trvanie
                 TextFormField(
-                  controller: _paceController,
+                  controller: _durationController,
                   decoration: const InputDecoration(
-                    labelText: 'Cieľové tempo (min/km)',
-                    hintText: 'napr. 5.5',
-                    prefixIcon: Icon(Icons.speed),
+                    labelText: 'Trvanie (min)',
+                    hintText: 'napr. 30',
+                    prefixIcon: Icon(Icons.timer),
                     border: OutlineInputBorder(),
-                    suffixText: 'min/km',
+                    suffixText: 'min',
                   ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                    FilteringTextInputFormatter.digitsOnly,
                   ],
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Zadaj tempo';
+                      return 'Zadaj trvanie';
                     }
-                    final pace = double.tryParse(value);
-                    if (pace == null || pace <= 0) {
-                      return 'Zadaj platné tempo';
+                    final duration = int.tryParse(value);
+                    if (duration == null || duration <= 0) {
+                      return 'Zadaj platné trvanie';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 24),
 
-                // Tlačidlá
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -153,12 +179,12 @@ class _AddGoalModalState extends State<AddGoalModal> {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: _saveGoal,
+                      onPressed: _saveActivity,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text('Pridať'),
+                      child: const Text('Uložiť'),
                     ),
                   ],
                 ),

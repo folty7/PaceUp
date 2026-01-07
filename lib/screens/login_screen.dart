@@ -17,8 +17,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
 
   // Hardcoded test user
-  final String _testUsername = 'andrej';
-  final String _testPassword = 'andrej123';
+  final String _testUsername = 'sudo';
+  final String _testPassword = 'sudo';
 
   @override
   void dispose() {
@@ -175,22 +175,22 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Column(
+                  child: Column(
                     children: [
-                      Text(
+                      const Text(
                         'Test prihlasovacie údaje:',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'Meno: andrej',
+                        'Meno: $_testUsername',
                         style: TextStyle(fontSize: 12),
                       ),
                       Text(
-                        'Heslo: andrej123',
+                        'Heslo: $_testPassword',
                         style: TextStyle(fontSize: 12),
                       ),
                     ],

@@ -25,6 +25,27 @@ class ApiService {
     }
   }
 
+  // Vytvorenie aktivity na MockAPI
+  Future<Activity> createActivity(Activity activity) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/Activity'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(activity.toJson()),
+    );
+
+    if (response.statusCode == 201) {
+      final json = jsonDecode(response.body);
+      if (json['id'] is String) {
+        json['id'] = int.tryParse(json['id']) ?? 0;
+      }
+      return Activity.fromJson(json);
+    } else {
+      throw Exception('Failed to create activity');
+    }
+  }
+
   // Načítanie cieľov z MockAPI
   Future<List<Goal>> fetchGoals() async {
     final response = await http.get(Uri.parse('$_baseUrl/Goal'));
@@ -86,9 +107,14 @@ class ApiService {
   }
 
   // Výpočet progresu voči cieľu
-  double calculateProgress(List<Activity> activities, double goalDistance) {
-    double totalDistance = calculateTotalDistance(activities);
-    double progress = (totalDistance / goalDistance) * 100;
+  double calculateProgress(List<Activity> activities, Goal goal) {
+    // Filtruj aktivity, ktoré vznikli po vytvorení cieľa (vrátane dňa vytvorenia)
+    final filteredActivities = activities.where((activity) {
+      return activity.date.compareTo(goal.createdAt) >= 0;
+    }).toList();
+
+    double totalDistance = calculateTotalDistance(filteredActivities);
+    double progress = (totalDistance / goal.targetDistance) * 100;
     return progress > 100 ? 100 : progress; // Max 100%
   }
 }

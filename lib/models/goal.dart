@@ -5,15 +5,15 @@ class Goal {
   final double targetDistance; // km
   final double targetPace;     // min/km
   final bool isArchived;       // či je cieľ archivovaný
-  final String? archivedDate;  // dátum archivovanie
+  final String createdAt;      // dátum vytvorenia
 
   Goal({
     required this.id,
     required this.name,
     required this.targetDistance,
     required this.targetPace,
+    required this.createdAt,
     this.isArchived = false,
-    this.archivedDate,
   });
 
   // Konverzia na JSON pre uloženie
@@ -24,7 +24,7 @@ class Goal {
       'targetDistance': targetDistance,
       'targetPace': targetPace,
       'isArchived': isArchived,
-      'archivedDate': archivedDate,
+      'createdAt': createdAt,
     };
   }
 
@@ -36,7 +36,7 @@ class Goal {
       targetDistance: json['targetDistance'].toDouble(),
       targetPace: json['targetPace'].toDouble(),
       isArchived: json['isArchived'] ?? false,
-      archivedDate: json['archivedDate'],
+      createdAt: json['createdAt'] ?? DateTime.now().toString().split(' ')[0], // fallback for old data
     );
   }
 
@@ -48,7 +48,7 @@ class Goal {
       targetDistance: targetDistance,
       targetPace: targetPace,
       isArchived: archived,
-      archivedDate: archived ? DateTime.now().toString().split(' ')[0] : null,
+      createdAt: createdAt,
     );
   }
 }
