@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/activity.dart';
 import '../models/goal.dart';
 import 'package:http/http.dart' as http;
@@ -6,7 +7,7 @@ import 'package:http/http.dart' as http;
 // Jednoduchý API service s mock dátami
 class ApiService {
 
-  static const String _baseUrl = 'https://695d3f3379f2f34749d76d48.mockapi.io/api/v1';
+  static String get _baseUrl => dotenv.env['API_BASE_URL'] ?? '';
 
   // Načítanie aktivít z MockAPI
   Future<List<Activity>> fetchActivities() async {

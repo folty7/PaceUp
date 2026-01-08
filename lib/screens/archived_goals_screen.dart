@@ -159,7 +159,7 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
                                     color: Colors.green,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(Icons.check_circle, color: Colors.white, size: 14),
