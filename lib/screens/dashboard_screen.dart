@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../models/activity.dart';
 import '../models/goal.dart';
-import '../services/api_service.dart';
+import '../services/activity_service.dart';
+import '../services/goal_service.dart';
 import '../widgets/goal_chart.dart';
 import 'activities_screen.dart';
 import 'add_activity_modal.dart';
@@ -18,7 +19,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final ApiService _apiService = ApiService();
+  final ActivityService _activityService = ActivityService();
+  final GoalService _goalService = GoalService();
 
   List<Activity> _activities = [];
   List<Goal> _goals = [];
@@ -30,18 +32,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadData();
   }
 
-// TODO: code splitting + refactoring
-
-  // Načítanie dát (Aktivity aj Ciele)
+  // Fetch data (Activities and Goals)
   Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final results = await Future.wait([
-        _apiService.fetchActivities(),
-        _apiService.fetchGoals(),
+        _activityService.fetchActivities(),
+        _goalService.fetchGoals(),
       ]);
 
       setState(() {
@@ -50,9 +48,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Chyba pri načítavaní dát: $e')),
@@ -61,149 +57,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Pridanie novej aktivity
-  Future<void> _addActivity() async {
-    final activity = await showDialog<Activity>(
-      context: context,
-      builder: (context) => const AddActivityModal(),
-    );
-
-    if (activity != null) {
-      try {
-        final createdActivity = await _apiService.createActivity(activity);
-        setState(() {
-          _activities.add(createdActivity);
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Aktivita bola úspešne pridaná!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Chyba pri vytváraní aktivity: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-
-
-  // Pridanie nového cieľa
-  Future<void> _addGoal() async {
-    final goal = await showDialog<Goal>(
-      context: context,
-      builder: (context) => const AddGoalModal(),
-    );
-
-    if (goal != null) {
-      try {
-        // Push goal to API
-        final createdGoal = await _apiService.createGoal(goal);
-
-        setState(() {
-          _goals.add(createdGoal);
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cieľ bol úspešne vytvorený!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Chyba pri vytváraní cieľa: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  // Odstránenie cieľa
-  Future<void> _removeGoal(String goalId) async {
-    try {
-      await _apiService.deleteGoal(goalId);
-      
-      setState(() {
-        _goals.removeWhere((g) => g.id == goalId);
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Chyba pri odstraňovaní cieľa: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  // Archivovanie cieľa
-  Future<void> _archiveGoal(String goalId) async {
-    final index = _goals.indexWhere((g) => g.id == goalId);
-    if (index != -1) {
-      final updatedGoal = _goals[index].copyWithArchived(true);
-      
-      try {
-        // Update on API
-        await _apiService.updateGoal(updatedGoal);
-
-        setState(() {
-          _goals[index] = updatedGoal;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cieľ bol archivovaný!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Chyba pri archivácii: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-
-
-  // Výpočet priemerného tempa
-  double _calculateAveragePace(List<Activity> activities) {
-    if (activities.isEmpty) return 0;
-    final totalPace = activities.fold(0.0, (sum, activity) => sum + activity.pace);
-    return totalPace / activities.length;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final totalDistance = _apiService.calculateTotalDistance(_activities);
-    final averagePace = _calculateAveragePace(_activities);
-
+    // Calculations using services
+    final averagePace = _activityService.calculateAveragePace(_activities);
     final archivedGoals = _goals.where((g) => g.isArchived).toList();
 
     return Scaffold(
@@ -217,13 +74,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.archive),
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ArchivedGoalsScreen(archivedGoals: archivedGoals),
+                        builder: (context) => ArchivedGoalsScreen(
+                          archivedGoals: archivedGoals,
+                          goalService: _goalService, // Pass service instance
+                        ),
                       ),
                     );
+                    _loadData(); // Refresh on return
                   },
                   tooltip: 'Archivované ciele',
                 ),
@@ -263,7 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Tlačidlo "Načítať aktivity"
+                // Load Data Button
                 ElevatedButton.icon(
                   onPressed: _isLoading ? null : _loadData,
                   icon: _isLoading
@@ -306,7 +167,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 24),
 
-            // Sekcia cieľov
+            // Goals Section Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -318,8 +179,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Row(
                       children: [
+                        // Add Activity Button
                         ElevatedButton.icon(
-                          onPressed: _addActivity,
+                          onPressed: () async {
+                            final activity = await showDialog<Activity>(
+                              context: context,
+                              builder: (context) => const AddActivityModal(),
+                            );
+                            if (activity != null) {
+                              try {
+                                final created = await _activityService.createActivity(activity);
+                                setState(() => _activities.add(created));
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Aktivita bola úspešne pridaná!'), backgroundColor: Colors.green),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Chyba: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
+                            }
+                          },
                           icon: const Icon(Icons.add),
                           label: const Text('Pridať aktivitu'),
                           style: ElevatedButton.styleFrom(
@@ -328,8 +212,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
+                        // Add Goal Button
                         ElevatedButton.icon(
-                          onPressed: _addGoal,
+                          onPressed: () async {
+                            final goal = await showDialog<Goal>(
+                              context: context,
+                              builder: (context) => const AddGoalModal(),
+                            );
+                            if (goal != null) {
+                              try {
+                                final created = await _goalService.createGoal(goal);
+                                setState(() => _goals.add(created));
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Cieľ bol úspešne vytvorený!'), backgroundColor: Colors.green),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Chyba: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
+                            }
+                          },
                           icon: const Icon(Icons.add),
                           label: const Text('Pridať cieľ'),
                           style: ElevatedButton.styleFrom(
@@ -346,7 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 16),
 
-            // Zoznam cieľov ako bubble sekcie
+            // Goals List
             if (_goals.where((g) => !g.isArchived).isEmpty)
               Center(
                 child: Padding(
@@ -372,14 +279,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ..._goals.where((g) => !g.isArchived).map((goal) {
                 final progress = _activities.isEmpty
                     ? 0.0
-                    : _apiService.calculateProgress(_activities, goal);
-
-                // Calculate distance for this goal specifically
-                final goalActivities = _activities.where((a) => a.date.compareTo(goal.createdAt) >= 0).toList();
-                final currentDistance = _apiService.calculateTotalDistance(goalActivities);
+                    : _goalService.calculateProgress(_activities, goal);
+                
+                final currentDistance = _goalService.calculateGoalDistance(_activities, goal);
 
                 final paceOk = averagePace > 0 && averagePace <= goal.targetPace;
                 final progressColor = progress >= 100 ? Colors.green : Colors.blue;
+
+                final goalActivities = _activities.where((a) => a.date.compareTo(goal.createdAt) >= 0).toList();
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -400,7 +307,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header s názvom a delete tlačidlom
+                        // Card Header
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -434,12 +341,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 if (progress >= 100)
                                   IconButton(
                                     icon: const Icon(Icons.archive, color: Colors.green),
-                                    onPressed: () => _archiveGoal(goal.id),
+                                    onPressed: () async {
+                                      try {
+                                        final updated = await _goalService.setGoalArchived(goal, true);
+                                        setState(() {
+                                          final index = _goals.indexWhere((g) => g.id == goal.id);
+                                          if(index != -1) _goals[index] = updated;
+                                        });
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Cieľ archivovaný!'), backgroundColor: Colors.green),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chyba: $e')));
+                                        }
+                                      }
+                                    },
                                     tooltip: 'Archivovať splnený cieľ',
                                   ),
                                 IconButton(
                                   icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => _removeGoal(goal.id),
+                                  onPressed: () async {
+                                      try {
+                                        await _goalService.deleteGoal(goal.id);
+                                        setState(() {
+                                          _goals.removeWhere((g) => g.id == goal.id);
+                                        });
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chyba: $e'), backgroundColor: Colors.red));
+                                        }
+                                      }
+                                  },
                                 ),
                               ],
                             ),
@@ -509,7 +444,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Graf vzdialenosti
+                        // Chart
                         GoalChart(
                           activities: goalActivities,
                           targetValue: goal.targetDistance,

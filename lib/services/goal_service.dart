@@ -1,53 +1,15 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../models/activity.dart';
-import '../models/goal.dart';
 import 'package:http/http.dart' as http;
+import '../models/goal.dart';
+import '../models/activity.dart';
+import 'activity_service.dart';
 
-// Jednoduchý API service s mock dátami
-class ApiService {
-
+class GoalService {
   static String get _baseUrl => dotenv.env['API_BASE_URL'] ?? '';
+  final ActivityService _activityService = ActivityService(); // Helper for calculations
 
-  // Načítanie aktivít z MockAPI
-  Future<List<Activity>> fetchActivities() async {
-    final response = await http.get(Uri.parse('$_baseUrl/Activity'));
-
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonList = json.decode(response.body);
-      return jsonList.map((json) {
-        if (json['id'] is String) {
-          json['id'] = int.tryParse(json['id']) ?? 0;
-        }
-        return Activity.fromJson(json);
-      }).toList();
-    } else {
-      throw Exception('Failed to load activities');
-    }
-  }
-
-  // Vytvorenie aktivity na MockAPI
-  Future<Activity> createActivity(Activity activity) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/Activity'),
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode(activity.toJson()),
-    );
-
-    if (response.statusCode == 201) {
-      final json = jsonDecode(response.body);
-      if (json['id'] is String) {
-        json['id'] = int.tryParse(json['id']) ?? 0;
-      }
-      return Activity.fromJson(json);
-    } else {
-      throw Exception('Failed to create activity');
-    }
-  }
-
-  // Načítanie cieľov z MockAPI
+  // Fetch Goals
   Future<List<Goal>> fetchGoals() async {
     final response = await http.get(Uri.parse('$_baseUrl/Goal'));
 
@@ -59,7 +21,7 @@ class ApiService {
     }
   }
 
-  // Vytvorenie cieľa na MockAPI
+  // Create Goal
   Future<Goal> createGoal(Goal goal) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/Goal'),
@@ -76,7 +38,7 @@ class ApiService {
     }
   }
 
-  // Aktualizácia cieľa (napr. archivácia)
+  // Update Goal
   Future<void> updateGoal(Goal goal) async {
     final response = await http.put(
       Uri.parse('$_baseUrl/Goal/${goal.id}'),
@@ -91,7 +53,14 @@ class ApiService {
     }
   }
 
-  // Odstránenie cieľa
+  // Update Goal Archived Status
+  Future<Goal> setGoalArchived(Goal goal, bool archived) async {
+    final updatedGoal = goal.copyWithArchived(archived);
+    await updateGoal(updatedGoal);
+    return updatedGoal;
+  }
+
+  // Delete Goal
   Future<void> deleteGoal(String id) async {
     final response = await http.delete(
       Uri.parse('$_baseUrl/Goal/$id'),
@@ -102,20 +71,23 @@ class ApiService {
     }
   }
 
-  // Výpočet celkovej vzdialenosti
-  double calculateTotalDistance(List<Activity> activities) {
-    return activities.fold(0.0, (sum, activity) => sum + activity.distance);
-  }
-
-  // Výpočet progresu voči cieľu
+  // Calculate Progress
   double calculateProgress(List<Activity> activities, Goal goal) {
-    // Filtruj aktivity, ktoré vznikli po vytvorení cieľa (vrátane dňa vytvorenia)
+    // Filter activities that happened after goal creation
     final filteredActivities = activities.where((activity) {
       return activity.date.compareTo(goal.createdAt) >= 0;
     }).toList();
 
-    double totalDistance = calculateTotalDistance(filteredActivities);
+    double totalDistance = _activityService.calculateTotalDistance(filteredActivities);
     double progress = (totalDistance / goal.targetDistance) * 100;
     return progress > 100 ? 100 : progress; // Max 100%
+  }
+  
+  // Helper to get distance strictly for the goal's range (useful for chart/display)
+  double calculateGoalDistance(List<Activity> activities, Goal goal) {
+    final filteredActivities = activities.where((activity) {
+      return activity.date.compareTo(goal.createdAt) >= 0;
+    }).toList();
+    return _activityService.calculateTotalDistance(filteredActivities);
   }
 }

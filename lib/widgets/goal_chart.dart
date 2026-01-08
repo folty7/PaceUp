@@ -175,7 +175,14 @@ class GoalChart extends StatelessWidget {
                     ),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Colors.blue.withOpacity(0.1),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.blue.withOpacity(0.5),
+                          Colors.cyan.withOpacity(0.1),
+                        ],
+                      ),
                     ),
                   ),
                   // Cieľová hodnota (oranžová čiara)

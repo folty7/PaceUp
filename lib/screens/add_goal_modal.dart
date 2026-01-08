@@ -14,13 +14,37 @@ class _AddGoalModalState extends State<AddGoalModal> {
   final _nameController = TextEditingController();
   final _distanceController = TextEditingController();
   final _paceController = TextEditingController();
+  final _dateController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _dateController.text = _selectedDate.toString().split(' ')[0];
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _distanceController.dispose();
     _paceController.dispose();
+    _dateController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text = _selectedDate.toString().split(' ')[0];
+      });
+    }
   }
 
   void _saveGoal() {
@@ -30,7 +54,7 @@ class _AddGoalModalState extends State<AddGoalModal> {
         name: _nameController.text,
         targetDistance: double.parse(_distanceController.text),
         targetPace: double.parse(_paceController.text),
-        createdAt: DateTime.now().toString().split(' ')[0], // YYYY-MM-DD
+        createdAt: _selectedDate.toString().split(' ')[0], // YYYY-MM-DD from picker
       );
 
       Navigator.pop(context, goal);
@@ -140,6 +164,20 @@ class _AddGoalModalState extends State<AddGoalModal> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 16),
+
+                // Dátum začiatku
+                TextFormField(
+                  controller: _dateController,
+                  decoration: const InputDecoration(
+                    labelText: 'Dátum začiatku',
+                    hintText: 'YYYY-MM-DD',
+                    prefixIcon: Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(),
+                  ),
+                  readOnly: true,
+                  onTap: () => _selectDate(context),
                 ),
                 const SizedBox(height: 24),
 

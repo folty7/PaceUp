@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 import '../models/activity.dart';
 import '../models/goal.dart';
-import '../services/api_service.dart';
+import '../services/activity_service.dart';
+import '../services/goal_service.dart';
 import '../widgets/goal_chart.dart';
 
 class ArchivedGoalsScreen extends StatefulWidget {
   final List<Goal> archivedGoals;
+  final GoalService goalService;
 
-  const ArchivedGoalsScreen({super.key, required this.archivedGoals});
+  const ArchivedGoalsScreen({
+    super.key,
+    required this.archivedGoals,
+    required this.goalService,
+  });
 
   @override
   State<ArchivedGoalsScreen> createState() => _ArchivedGoalsScreenState();
 }
 
 class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
-  final ApiService _apiService = ApiService();
+  final ActivityService _activityService = ActivityService();
   List<Activity> _activities = [];
   bool _isLoading = false;
 
@@ -24,36 +30,24 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
     _loadActivities();
   }
 
-  // Načítanie aktivít z API
+  // Load activities from API
   Future<void> _loadActivities() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      final activities = await _apiService.fetchActivities();
+      final activities = await _activityService.fetchActivities();
       setState(() {
         _activities = activities;
         _isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  // Výpočet priemerného tempa
-  double _calculateAveragePace(List<Activity> activities) {
-    if (activities.isEmpty) return 0;
-    final totalPace = activities.fold(0.0, (sum, activity) => sum + activity.pace);
-    return totalPace / activities.length;
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalDistance = _apiService.calculateTotalDistance(_activities);
-    final averagePace = _calculateAveragePace(_activities);
+    final averagePace = _activityService.calculateAveragePace(_activities);
 
     return Scaffold(
       appBar: AppBar(
@@ -93,10 +87,10 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
                     final goal = widget.archivedGoals[index];
                     final progress = _activities.isEmpty
                         ? 0.0
-                        : _apiService.calculateProgress(_activities, goal);
+                        : widget.goalService.calculateProgress(_activities, goal);
 
+                    final currentDistance = widget.goalService.calculateGoalDistance(_activities, goal);
                     final goalActivities = _activities.where((a) => a.date.compareTo(goal.createdAt) >= 0).toList();
-                    final currentDistance = _apiService.calculateTotalDistance(goalActivities);
 
                     final paceOk = averagePace > 0 && averagePace <= goal.targetPace;
 
@@ -162,9 +156,9 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.check_circle, color: Colors.white, size: 14),
-                                      SizedBox(width: 4),
-                                      Text(
+                                      const Icon(Icons.check_circle, color: Colors.white, size: 14),
+                                      const SizedBox(width: 4),
+                                      const Text(
                                         'SPLNENÉ',
                                         style: TextStyle(
                                           color: Colors.white,
@@ -172,12 +166,23 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
                                           fontSize: 11,
                                         ),
                                       ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red),
-                                        onPressed: () => _removeGoal(goal.id),
-                                      ),
                                     ],
                                   ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () async {
+                                    try {
+                                      await widget.goalService.deleteGoal(goal.id);
+                                      setState(() {
+                                        widget.archivedGoals.removeAt(index);
+                                      });
+                                    } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chyba: $e'), backgroundColor: Colors.red));
+                                        }
+                                    }
+                                  },
                                 ),
                               ],
                             ),
