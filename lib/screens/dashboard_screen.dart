@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../models/activity.dart';
@@ -59,8 +58,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculations using services
-    final averagePace = _activityService.calculateAveragePace(_activities);
     final archivedGoals = _goals.where((g) => g.isArchived).toList();
 
     return Scaffold(
@@ -280,13 +277,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 final progress = _activities.isEmpty
                     ? 0.0
                     : _goalService.calculateProgress(_activities, goal);
-                
+
                 final currentDistance = _goalService.calculateGoalDistance(_activities, goal);
 
-                final paceOk = averagePace > 0 && averagePace <= goal.targetPace;
-                final progressColor = progress >= 100 ? Colors.green : Colors.blue;
+                // Get goal-specific activities and pace (respects completion date for completed goals)
+                final goalActivities = _goalService.getGoalActivities(_activities, goal);
+                final goalAveragePace = _goalService.calculateGoalAveragePace(_activities, goal);
 
-                final goalActivities = _activities.where((a) => a.date.compareTo(goal.createdAt) >= 0).toList();
+                final paceOk = goalAveragePace > 0 && goalAveragePace <= goal.targetPace;
+                final progressColor = goal.isCompleted ? Colors.green : (progress >= 100 ? Colors.green : Colors.blue);
+
+                // Check if goal should be marked as completed (only if not already completed)
+                if (!goal.isCompleted && progress >= 100) {
+                  // Schedule completion update after build
+                  WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    try {
+                      final updated = await _goalService.setGoalCompleted(goal, true);
+                      if (mounted) {
+                        setState(() {
+                          final index = _goals.indexWhere((g) => g.id == goal.id);
+                          if (index != -1) _goals[index] = updated;
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Gratulujeme! Cieľ "${goal.name}" bol splnený! 🎉'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      // Silently fail - will retry on next build
+                    }
+                  });
+                }
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -314,22 +337,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Expanded(
                               child: Row(
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: progressColor,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(Icons.flag, color: Colors.white, size: 24),
+                                  Stack(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: progressColor,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Icon(
+                                          goal.isCompleted ? Icons.check : Icons.flag,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                      ),
+                                      if (goal.isCompleted)
+                                        Positioned(
+                                          right: -2,
+                                          top: -2,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(2),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.green,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.done,
+                                              color: Colors.white,
+                                              size: 12,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: Text(
-                                      goal.name,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          goal.name,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        if (goal.isCompleted && goal.completedAt != null)
+                                          Text(
+                                            'Splnené: ${goal.completedAt}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.green[700],
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -338,7 +400,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (progress >= 100)
+                                if (goal.isCompleted)
                                   IconButton(
                                     icon: const Icon(Icons.archive, color: Colors.green),
                                     onPressed: () async {
@@ -433,8 +495,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               child: _StatBox(
                                 icon: Icons.trending_up,
                                 label: 'Tvoje tempo',
-                                value: averagePace > 0
-                                    ? '${averagePace.toStringAsFixed(2)} min/km'
+                                value: goalAveragePace > 0
+                                    ? '${goalAveragePace.toStringAsFixed(2)} min/km'
                                     : '- -',
                                 color: paceOk ? Colors.green : Colors.red,
                               ),
