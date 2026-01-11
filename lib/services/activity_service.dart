@@ -44,6 +44,30 @@ class ActivityService {
     }
   }
 
+  // Update activity
+  Future<void> updateActivity(Activity activity) async {
+    final response = await http.put(
+      Uri.parse('$_baseUrl/Activity/${activity.id}'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(activity.toJson()),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update activity');
+    }
+  }
+
+  // Delete activity
+  Future<void> deleteActivity(int id) async {
+    final response = await http.delete(Uri.parse('$_baseUrl/Activity/$id'));
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete activity');
+    }
+  }
+
   // Calculate total distance
   double calculateTotalDistance(List<Activity> activities) {
     return activities.fold(0.0, (sum, activity) => sum + activity.distance);

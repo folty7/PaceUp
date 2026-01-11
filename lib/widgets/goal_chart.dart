@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/activity.dart';
 
 class GoalChart extends StatelessWidget {
@@ -204,8 +205,9 @@ class GoalChart extends StatelessWidget {
                         final activity = sortedActivities[spot.x.toInt()];
                         String text;
                         if (spot.barIndex == 0) {
-                          // Aktuálne hodnoty
-                          text = '${activity.date}\nCelkom: ${spot.y.toStringAsFixed(1)} $unit';
+                          // Aktuálne hodnoty - format date for display
+                          final formattedDate = DateFormat('dd.MM.yyyy').format(DateTime.parse(activity.date));
+                          text = '$formattedDate\nCelkom: ${spot.y.toStringAsFixed(1)} $unit';
                         } else {
                           // Cieľ
                           text = 'Cieľ: ${spot.y.toStringAsFixed(1)} $unit';

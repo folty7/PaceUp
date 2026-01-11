@@ -48,8 +48,8 @@ class GoalService {
     return updated;
   }
 
-  Future<Goal> setGoalCompleted(Goal goal, bool completed, {int? activityId}) async {
-    final updated = goal.copyWithCompleted(completed, activityId: activityId);
+  Future<Goal> setGoalCompleted(Goal goal, bool completed) async {
+    final updated = goal.copyWithCompleted(completed);
     await updateGoal(updated);
     return updated;
   }
@@ -73,18 +73,16 @@ class GoalService {
     return _activityService.calculateAveragePace(getGoalActivities(activities, goal));
   }
 
-  // Filter activities for goal (from creation, up to completion activity)
+  // Filter activities for goal (from creation timestamp to completion timestamp)
   List<Activity> getGoalActivities(List<Activity> activities, Goal goal) {
-    var filtered = activities.where((a) => a.date.compareTo(goal.createdAt) >= 0).toList();
-
-    // If completed, only include activities up to the completion activity
-    if (goal.isCompleted && goal.completedWithActivityId != null) {
-      final idx = filtered.indexWhere((a) => a.id == goal.completedWithActivityId);
-      if (idx != -1) {
-        filtered = filtered.sublist(0, idx + 1);
+    return activities.where((a) {
+      // Activity must be after goal creation
+      if (a.date.compareTo(goal.createdAt) < 0) return false;
+      // If goal is completed, activity must be before or at completion time
+      if (goal.isCompleted && goal.completedAt != null) {
+        if (a.date.compareTo(goal.completedAt!) > 0) return false;
       }
-    }
-
-    return filtered;
+      return true;
+    }).toList();
   }
 }

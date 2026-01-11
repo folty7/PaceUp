@@ -3,7 +3,7 @@ class Activity {
   final int id;
   final double distance; // km
   final int duration;    // minúty
-  final String date;
+  final String date;     // ISO 8601 timestamp
   final double pace;     // min/km
 
   Activity({
@@ -24,6 +24,7 @@ class Activity {
       pace: json['pace'].toDouble(),
     );
   }
+
   // Konverzia na JSON pre uloženie
   Map<String, dynamic> toJson() {
     return {
@@ -33,5 +34,15 @@ class Activity {
       'date': date,
       'pace': pace,
     };
+  }
+
+  Activity copyWith({double? distance, int? duration, String? date, double? pace}) {
+    return Activity(
+      id: id,
+      distance: distance ?? this.distance,
+      duration: duration ?? this.duration,
+      date: date ?? this.date,
+      pace: pace ?? this.pace,
+    );
   }
 }

@@ -9,6 +9,7 @@ import 'activities_screen.dart';
 import 'add_activity_modal.dart';
 import 'add_goal_modal.dart';
 import 'archived_goals_screen.dart';
+import 'edit_goal_modal.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -145,13 +146,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
+                        onPressed: () async {
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => ActivitiesScreen(activities: _activities),
                             ),
                           );
+                          _loadData(); // Refresh on return
                         },
                         icon: const Icon(Icons.list),
                         label: Text('Zobraziť aktivity (${_activities.length})'),
@@ -282,13 +284,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 final goalAveragePace = _goalService.calculateGoalAveragePace(_activities, goal);
                 final goalActivities = _goalService.getGoalActivities(_activities, goal);
 
-                // Check if goal should be marked as completed (only if not already completed)
+                // Auto-complete goal when progress reaches 100%
                 if (!goal.isCompleted && progress >= 100) {
-                  // Schedule completion update after build
                   WidgetsBinding.instance.addPostFrameCallback((_) async {
                     try {
-                      final lastActivityId = goalActivities.isNotEmpty ? goalActivities.last.id : null;
-                      final updated = await _goalService.setGoalCompleted(goal, true, activityId: lastActivityId);
+                      final updated = await _goalService.setGoalCompleted(goal, true);
                       if (mounted) {
                         setState(() {
                           final index = _goals.indexWhere((g) => g.id == goal.id);
@@ -296,10 +296,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Gratulujeme! Cieľ "${goal.name}" bol splnený! 🎉'),
+                            content: Text('Gratulujeme! Cieľ "${goal.name}" bol splnený!'),
                             backgroundColor: Colors.green,
                           ),
                         );
+                      }
+                    } catch (e) {
+                      // Silently fail - will retry on next build
+                    }
+                  });
+                }
+
+                // Auto-uncomplete goal when progress drops below 100%
+                if (goal.isCompleted && progress < 100) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    try {
+                      final updated = await _goalService.setGoalCompleted(goal, false);
+                      if (mounted) {
+                        setState(() {
+                          final index = _goals.indexWhere((g) => g.id == goal.id);
+                          if (index != -1) _goals[index] = updated;
+                        });
                       }
                     } catch (e) {
                       // Silently fail - will retry on next build
@@ -313,6 +330,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   currentDistance: currentDistance,
                   goalAveragePace: goalAveragePace,
                   goalActivities: goalActivities,
+                  onEdit: () async {
+                    final updated = await showDialog<Goal>(
+                      context: context,
+                      builder: (context) => EditGoalModal(goal: goal),
+                    );
+                    if (updated != null) {
+                      try {
+                        await _goalService.updateGoal(updated);
+                        setState(() {
+                          final index = _goals.indexWhere((g) => g.id == goal.id);
+                          if (index != -1) _goals[index] = updated;
+                        });
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cieľ bol upravený!'), backgroundColor: Colors.green),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Chyba: $e'), backgroundColor: Colors.red));
+                        }
+                      }
+                    }
+                  },
                   onArchive: goal.isCompleted
                       ? () async {
                           try {

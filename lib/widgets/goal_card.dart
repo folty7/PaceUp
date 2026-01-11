@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/activity.dart';
 import '../models/goal.dart';
@@ -14,6 +15,7 @@ class GoalCard extends StatelessWidget {
   final bool isArchived;
   final VoidCallback? onArchive;
   final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
 
   const GoalCard({
     super.key,
@@ -25,6 +27,7 @@ class GoalCard extends StatelessWidget {
     this.isArchived = false,
     this.onArchive,
     this.onDelete,
+    this.onEdit,
   });
 
   @override
@@ -93,7 +96,7 @@ class GoalCard extends StatelessWidget {
                     ),
                     if (goal.completedAt != null)
                       Text(
-                        'Splnené: ${goal.completedAt}',
+                        'Splnené: ${DateFormat('dd.MM.yyyy').format(DateTime.parse(goal.completedAt!))}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.green[700],
@@ -197,6 +200,12 @@ class GoalCard extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (onEdit != null && !goal.isCompleted)
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.blue),
+            onPressed: onEdit,
+            tooltip: 'Upraviť cieľ',
+          ),
         if (goal.isCompleted && onArchive != null)
           IconButton(
             icon: const Icon(Icons.archive, color: Colors.green),

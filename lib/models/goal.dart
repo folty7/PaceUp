@@ -5,10 +5,9 @@ class Goal {
   final double targetPace;
   final bool isArchived;
   final bool isCompleted;
-  final String createdAt;
-  final String? completedAt;
-  final int? completedWithActivityId; // ID of last activity when completed
-  
+  final String createdAt; // ISO 8601 timestamp
+  final String? completedAt; // ISO 8601 timestamp
+
   Goal({
     required this.id,
     required this.name,
@@ -18,10 +17,9 @@ class Goal {
     this.isArchived = false,
     this.isCompleted = false,
     this.completedAt,
-    this.completedWithActivityId,
   });
 
-  static String get _today => DateTime.now().toString().split(' ')[0];
+  static String get _now => DateTime.now().toIso8601String();
 
   static bool _parseBool(dynamic v) => v == true || v == 'true';
 
@@ -32,9 +30,8 @@ class Goal {
     targetPace: json['targetPace'].toDouble(),
     isArchived: _parseBool(json['isArchived']),
     isCompleted: _parseBool(json['isCompleted']),
-    createdAt: json['createdAt'] ?? _today,
+    createdAt: json['createdAt'] ?? _now,
     completedAt: json['completedAt'],
-    completedWithActivityId: json['completedWithActivityId'],
   );
 
   Map<String, dynamic> toJson() => {
@@ -46,19 +43,28 @@ class Goal {
     'isCompleted': isCompleted,
     'createdAt': createdAt,
     'completedAt': completedAt,
-    'completedWithActivityId': completedWithActivityId,
   };
 
   Goal copyWithArchived(bool archived) => Goal(
     id: id, name: name, targetDistance: targetDistance, targetPace: targetPace,
     isArchived: archived, isCompleted: isCompleted, createdAt: createdAt,
-    completedAt: completedAt, completedWithActivityId: completedWithActivityId,
+    completedAt: completedAt,
   );
 
-  Goal copyWithCompleted(bool completed, {int? activityId}) => Goal(
+  Goal copyWithCompleted(bool completed) => Goal(
     id: id, name: name, targetDistance: targetDistance, targetPace: targetPace,
     isArchived: isArchived, isCompleted: completed, createdAt: createdAt,
-    completedAt: completed ? _today : null,
-    completedWithActivityId: completed ? activityId : null,
+    completedAt: completed ? _now : null,
+  );
+
+  Goal copyWith({String? name, double? targetDistance, double? targetPace}) => Goal(
+    id: id,
+    name: name ?? this.name,
+    targetDistance: targetDistance ?? this.targetDistance,
+    targetPace: targetPace ?? this.targetPace,
+    isArchived: isArchived,
+    isCompleted: isCompleted,
+    createdAt: createdAt,
+    completedAt: completedAt,
   );
 }
