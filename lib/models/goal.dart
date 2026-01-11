@@ -8,7 +8,7 @@ class Goal {
   final String createdAt;
   final String? completedAt;
   final int? completedWithActivityId; // ID of last activity when completed
-
+  
   Goal({
     required this.id,
     required this.name,
