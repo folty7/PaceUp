@@ -289,7 +289,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   // Schedule completion update after build
                   WidgetsBinding.instance.addPostFrameCallback((_) async {
                     try {
-                      final updated = await _goalService.setGoalCompleted(goal, true);
+                      final goalActivities = _goalService.getGoalActivities(_activities, goal);
+                      final lastActivityId = goalActivities.isNotEmpty ? goalActivities.last.id : null;
+                      final updated = await _goalService.setGoalCompleted(goal, true, activityId: lastActivityId);
                       if (mounted) {
                         setState(() {
                           final index = _goals.indexWhere((g) => g.id == goal.id);

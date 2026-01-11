@@ -7,6 +7,7 @@ class Goal {
   final bool isCompleted;
   final String createdAt;
   final String? completedAt;
+  final int? completedWithActivityId; // ID of last activity when completed
 
   Goal({
     required this.id,
@@ -17,6 +18,7 @@ class Goal {
     this.isArchived = false,
     this.isCompleted = false,
     this.completedAt,
+    this.completedWithActivityId,
   });
 
   static String get _today => DateTime.now().toString().split(' ')[0];
@@ -32,6 +34,7 @@ class Goal {
     isCompleted: _parseBool(json['isCompleted']),
     createdAt: json['createdAt'] ?? _today,
     completedAt: json['completedAt'],
+    completedWithActivityId: json['completedWithActivityId'],
   );
 
   Map<String, dynamic> toJson() => {
@@ -43,16 +46,19 @@ class Goal {
     'isCompleted': isCompleted,
     'createdAt': createdAt,
     'completedAt': completedAt,
+    'completedWithActivityId': completedWithActivityId,
   };
 
   Goal copyWithArchived(bool archived) => Goal(
     id: id, name: name, targetDistance: targetDistance, targetPace: targetPace,
-    isArchived: archived, isCompleted: isCompleted, createdAt: createdAt, completedAt: completedAt,
+    isArchived: archived, isCompleted: isCompleted, createdAt: createdAt,
+    completedAt: completedAt, completedWithActivityId: completedWithActivityId,
   );
 
-  Goal copyWithCompleted(bool completed) => Goal(
+  Goal copyWithCompleted(bool completed, {int? activityId}) => Goal(
     id: id, name: name, targetDistance: targetDistance, targetPace: targetPace,
     isArchived: isArchived, isCompleted: completed, createdAt: createdAt,
     completedAt: completed ? _today : null,
+    completedWithActivityId: completed ? activityId : null,
   );
 }
