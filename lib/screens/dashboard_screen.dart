@@ -307,23 +307,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   });
                 }
 
-                // Auto-uncomplete goal when progress drops below 100%
-                if (goal.isCompleted && progress < 100) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) async {
-                    try {
-                      final updated = await _goalService.setGoalCompleted(goal, false);
-                      if (mounted) {
-                        setState(() {
-                          final index = _goals.indexWhere((g) => g.id == goal.id);
-                          if (index != -1) _goals[index] = updated;
-                        });
-                      }
-                    } catch (e) {
-                      // Silently fail - will retry on next build
-                    }
-                  });
-                }
-
                 return GoalCard(
                   goal: goal,
                   progress: progress,
