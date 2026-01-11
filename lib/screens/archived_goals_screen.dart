@@ -88,9 +88,6 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
                         : widget.goalService.calculateProgress(_activities, goal);
 
                     final currentDistance = widget.goalService.calculateGoalDistance(_activities, goal);
-
-                    // Get goal-specific activities and pace (respects completion date)
-                    final goalActivities = widget.goalService.getGoalActivities(_activities, goal);
                     final goalAveragePace = widget.goalService.calculateGoalAveragePace(_activities, goal);
 
                     final paceOk = goalAveragePace > 0 && goalAveragePace <= goal.targetPace;
@@ -262,7 +259,7 @@ class _ArchivedGoalsScreenState extends State<ArchivedGoalsScreen> {
 
                             // Graf vzdialenosti
                             GoalChart(
-                              activities: goalActivities,
+                              activities: widget.goalService.getGoalActivities(_activities, goal),
                               targetValue: goal.targetDistance,
                               title: 'Vzdialenosť v čase',
                               unit: 'km',

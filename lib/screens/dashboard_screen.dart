@@ -279,9 +279,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     : _goalService.calculateProgress(_activities, goal);
 
                 final currentDistance = _goalService.calculateGoalDistance(_activities, goal);
-
-                // Get goal-specific activities and pace (respects completion date for completed goals)
-                final goalActivities = _goalService.getGoalActivities(_activities, goal);
                 final goalAveragePace = _goalService.calculateGoalAveragePace(_activities, goal);
 
                 final paceOk = goalAveragePace > 0 && goalAveragePace <= goal.targetPace;
@@ -508,7 +505,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                         // Chart
                         GoalChart(
-                          activities: goalActivities,
+                          activities: _goalService.getGoalActivities(_activities, goal),
                           targetValue: goal.targetDistance,
                           title: 'Vzdialenosť v čase',
                           unit: 'km',

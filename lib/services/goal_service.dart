@@ -57,13 +57,15 @@ class GoalService {
   // Calculations
   double calculateProgress(List<Activity> activities, Goal goal) {
     if (goal.isCompleted) return 100.0;
-    final total = _activityService.calculateTotalDistance(getGoalActivities(activities, goal));
+    final filtered = getGoalActivities(activities, goal);
+    final total = _activityService.calculateTotalDistance(filtered);
     return (total / goal.targetDistance * 100).clamp(0, 100);
   }
 
   double calculateGoalDistance(List<Activity> activities, Goal goal) {
     if (goal.isCompleted) return goal.targetDistance;
-    final total = _activityService.calculateTotalDistance(getGoalActivities(activities, goal));
+    final filtered = getGoalActivities(activities, goal);
+    final total = _activityService.calculateTotalDistance(filtered);
     return total > goal.targetDistance ? goal.targetDistance : total;
   }
 
@@ -71,33 +73,8 @@ class GoalService {
     return _activityService.calculateAveragePace(getGoalActivities(activities, goal));
   }
 
-  // Activity Filtering
+  // Filter activities from goal creation date
   List<Activity> getGoalActivities(List<Activity> activities, Goal goal) {
-    if (!goal.isCompleted) {
-      return activities.where((a) => a.date.compareTo(goal.createdAt) >= 0).toList();
-    }
-
-    final endDate = goal.completedAt ?? goal.createdAt;
-
-    // Try activities before completion date
-    var filtered = activities.where((a) =>
-      a.date.compareTo(goal.createdAt) >= 0 && a.date.compareTo(endDate) < 0
-    ).toList();
-
-    // Same-day completion: take only activities up to target distance
-    if (filtered.isEmpty) {
-      filtered = activities.where((a) =>
-        a.date.compareTo(goal.createdAt) >= 0 && a.date.compareTo(endDate) <= 0
-      ).toList();
-
-      double cumulative = 0;
-      return filtered.takeWhile((a) {
-        if (cumulative >= goal.targetDistance) return false;
-        cumulative += a.distance;
-        return true;
-      }).toList();
-    }
-
-    return filtered;
+    return activities.where((a) => a.date.compareTo(goal.createdAt) >= 0).toList();
   }
 }
